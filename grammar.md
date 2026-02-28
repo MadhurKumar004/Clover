@@ -1,6 +1,7 @@
+```ebng
 <!--
     This file contains the grammar support by this compiler.
-    I tried writing the grammar as to be unambiguious, but if you spot any ambiguity please file a issue of the github or even better fix it.
+    I tried writing the grammar as to be unambiguious, but if you spot any ambiguity please file a issue of the github or even better-fix it.
 
     The grammer represents a low level statically typed langauge. That expect everything from a user and user to know what he is doing. Rather then making
     assumption by the compiler.
@@ -17,8 +18,10 @@ keyword :
     i1 i8 i16 i32 i64 i128
     u8 u16 u32 u64 u128
     f16 f32 f64 f128
-    char
+    char ret mut break continue
     fn if else elif do loop
+    true false as safe extern
+    struct 
 
 identifier :
     identifier nondigit
@@ -46,65 +49,144 @@ string literal :
 puntuator:
     {} [] ()
     - + / * % =
-    ..
+    == != < > <= >=
+    && || ! 
+    & | ^ ~ << >>
+    += -= *= /= %= &= |= ^= <<= >>=
+    -> . , ; : ::
+    * &
 
+<Program> ::= (<function> | <structDecl> | <constDecl> | <externDecl>)* EOF
 
-<SelectedFile> :: (<function>) EOF
+<function> ::= <type> <identifier> '(' <paramList>? ')' <block>
 
-<function> :: <type> <identifier> LPAREN <paramDecl> RPAREN <block>
+<structDecl> ::= 'struct' <identifier> '{' <fieldList> '}'
 
-<blocK> :: '{' <statement> '}'
+<fieldList> ::= (<identifier> ':' <type> ';')*
 
-<statement> :: <expr> ';'
+<paramList> ::= <param> (',' <param>)*
+
+<param> ::= <identifier> ':' <type>
+
+<externDecl> ::= 'extern' <type> <identifier> '(' <paramList>? ')' ';'
+
+<constDecl> ::= 'const' <identifier> : <type> '=' <expr> ';'
+
+<block> ::= '{' <statement>* '}'
+
+<statement> ::= <exprStmt>
             | <ifStmt>
             | <doStmt>
+            | <loopStmt>
             | <returnStmt>
-            | <assignment>
             | <declStmt>
+            | <breakStmt>
+            | <continueStmt>
+            | <unsafeStmt>
 
-<doStmt> :: 'do' <expr> <block>
+<doStmt> ::= 'do' <expr> <block>
 
-<ifStmt> :: 'if' <expr> <block> ( 'else' <block> )?
+<loopStmt> ::= 'loop' <block>
 
-<declStmt> :: <varDecl> ';'
+<breakStmt> ::= 'break' ';'
 
-<varDecl> :: <identifier> ':' <type> ('=' <expr>)?
+<continueStmt> ::= 'continue' ';'
 
-<assignment> :: <expr> '=' <expr> ';'
+<unsafeStmt> ::= 'unsafe' <block>
 
-<returnStmt> :: 'ret' <expr>? ';'
+<ifStmt> ::= 'if' <expr> <block> ('elif' <expr> <block>)* ( 'else' <block> )?
 
-<expr> :: <disjunction>
+<declStmt> ::= <varDecl>
 
-<disjunction> :: <conjunction> ( '||' <conjunction>)?
+<varDecl> ::= 'const'? <identifier> ':' <type> ('=' <expr>)? ';'
 
-<conjunction> :: <equality> ("&&" <equality>)?
+<exprStmt> ::= <expr> ';'
 
-<equalitly> :: <comparision> ( '==' <comparision>)?
+<returnStmt> ::= 'ret' <expr>? ';'
 
-<comparision> :: <additiveExpr> ( ('<' | '>') <addExpr>)?
+<expr> ::= <assignment>
 
-<additiveExpr> :: <multiplicativeExpr> (('+' | '-') <multiplicativeExpr>)?
+<assignment> ::= <postfixExpr> '=' <assignment>
+                | <disjunction>
 
-<multiplicativeExpr> :: <prefixExpr> (('*' | '/') <prefixExpr)?
+<disjunction> ::= <conjunction> ( '||' <conjunction>)*
 
-<prefixExpr> :: ('!')* <postfixExpr>
+<conjunction> ::= <equality> ("&&" <equality>)*
 
-<postfixExpr> :: <primaryExpr>
+<equality> ::= <comparision> ( '==' | '!=') <comparision>)*
 
-<primaryExpr> :: <type>
+<comparision> ::= <bitwiseOrExpr> ( ('<' | '>' | '<=' | '>=') <bitwiseOrExpr>)*
+
+<bitwiseOrExpr> ::= <bitwiseXorExpr> ('|' <bitwiseXorExpr>)*
+
+<bitwiseXorExpr> ::= <bitwiseAndExpr> ('^' <bitwiseAndExpr>)*
+
+<bitwiseAndExpr> ::= <shiftExpr> ('&' <shiftExpr>)*
+
+<shiftExpr> ::= <additiveExpr> (('<<' | '>>') <additiveExpr>)*
+
+<additiveExpr> ::= <multiplicativeExpr> (('+' | '-') <multiplicativeExpr>)*
+
+<multiplicativeExpr> ::= <castExpr> (('*' | '/' | '%') <castExpr>)*
+
+<castExpr> ::= <prefixExpr> 'as' <type>
+            | <prefixExpr>
+
+<prefixExpr> ::= ('!' | '-' | '~' | '*' | '&')* <postfixExpr>
+
+<postfixExpr> ::= <primaryExpr>
+                | <postfixExpr> '(' <argList>? ')'
+                | <postfixExpr> '[' <expr> ']'
+                | <postfixExpr> '.' <identifier>
+                | <postfixExpr> '->' <identifier>
+<argList> ::= <expr> (',' ,<expr>)*
+
+<primaryExpr> ::= <identifier>
                 | <numberLiteral>
+                | <charLiteral>
+                | <boolLiteral>
+                | <stringLiteral>
+                | '(' <expr> ')'
 
+<numberLiteral> ::= <decimalLiteral> <numSuffix>?
+                | <hexLiteral> <numSuffix>?
+                | <binaryLiteral> <numSuffix>?
+                | <octalLiteral> <numSuffix>?
 
-<type> :: <builtinType>
+<decimalLiteral> ::= ('0'..'9')+ ('.' ('0'..'9')+)?
+
+<hexLiteral> ::= '0x' ('0'..'9' | 'a'..'f' | 'A'..'F')+
+
+<binaryLiteral> ::= '0b' ('0' | '1')+
+
+<octalLiteral> ::= '0o' ('0'..'7')+
+
+<numSuffix> ::= 'i8' | 'i16' ..
+
+<boolLiteral> ::= 'true' | 'false'
+
+<charLiteral> ::= '\'' <charChar> '\''
+
+<charChar> ::= <escapeSeq> | any char except '\''
+
+<escapeSeq> ::= '\n' | '\t' | '\r' | '\\' | '\'' | '\0'
+
+<stringLiteral> ::= '"' <strChar>* '"'
+
+<strChar> ::= <escapeSeq> | any char except '"'
+
+<type> ::= <builtinType>
         | <userdefType>
+        | '*' <type>
+        | '*' 'const' <type>
 
-<builtinType> ::
+<builtinType> ::=
             i1 i8 i16 i32 i64 i128
             u8 u16 u32 u64 u128
             f16 f32 f64 f128
             char
 
-<identifier> :: ('a' .. 'z' | 'A' .. 'Z' ) + ('a' .. 'z' | 'A' .. 'Z' | '0' .. '9')*
+<identifier> ::= ('a' .. 'z' | 'A' .. 'Z' ) + ('a' .. 'z' | 'A' .. 'Z' | '0' .. '9')*
 
-<numberLiteral> :: ('0'..'9')+('.' ('0'..'9')+)?
+<numberLiteral> ::= ('0'..'9')+('.' ('0'..'9')+)?
+```
