@@ -138,7 +138,7 @@ puntuator:
                 | <postfixExpr> '(' <argList>? ')'
                 | <postfixExpr> '[' <expr> ']'
                 | <postfixExpr> '.' <identifier>
-                | <postfixExpr> '->' <identifier>
+                | <postfixExpr> '.*' <identifier>
 <argList> ::= <expr> (',' ,<expr>)*
 
 <primaryExpr> ::= <identifier>
