@@ -2,6 +2,8 @@
 #include <string>
 #include <optional>
 #include <cctype>
+#include <iostream>
+#include <cstdlib>
 
 #include <vector>
 #include "lex.h"
@@ -65,8 +67,6 @@ namespace Lex {
         Tok::TokenKind type;
 
         switch (c) {
-            case '+': type = Tok::TokenKind::PLUS; break;
-            case '*': type = Tok::TokenKind::MULTIPLY; break;
             case ',': type = Tok::TokenKind::COMMA; break;
             case ';': type = Tok::TokenKind::SEMICOLON; break;
             case '(': type = Tok::TokenKind::LPAREN; break;
@@ -76,9 +76,7 @@ namespace Lex {
             case '{': type = Tok::TokenKind::LBRACE; break;
             case '}': type = Tok::TokenKind::RBRACE; break;
             case '.': type = Tok::TokenKind::DOT; break;
-            case '^': type = Tok::TokenKind::BITWISEXOR; break;
-            case '&': type = Tok::TokenKind::BITWISEAND; break;
-            case '|': type = Tok::TokenKind::BITWISEOR; break;
+            case '~': type = Tok::TokenKind::TILDE; break;
             case '/':
                 return skip_comment();
             case '=':
@@ -86,6 +84,12 @@ namespace Lex {
             case '>':
             case '!':
             case '-':
+            case '+':
+            case '*':
+            case '%':
+            case '&':
+            case '|':
+            case '^':
             case ':': {
                 auto t = check_multi_char_type();
                 if (!t)
@@ -132,6 +136,16 @@ namespace Lex {
         if(first_char == '>' && second_char == '=') return Tok::TokenKind::GREATER_EQUAL;
         if(first_char == '>' && second_char == '>') return Tok::TokenKind::RSHIFT;
         if(first_char == '<' && second_char == '<') return Tok::TokenKind::LSHIFT;
+        if(first_char == '&' && second_char == '&') return Tok::TokenKind::AND;
+        if(first_char == '|' && second_char == '|') return Tok::TokenKind::OR;
+        if(first_char == '&' && second_char == '=') return Tok::TokenKind::AMP_ASSIGN;
+        if(first_char == '|' && second_char == '=') return Tok::TokenKind::PIPE_ASSIGN;
+        if(first_char == '+' && second_char == '=') return Tok::TokenKind::PLUS_ASSIGN;
+        if(first_char == '-' && second_char == '=') return Tok::TokenKind::MINUS_ASSIGN;
+        if(first_char == '*' && second_char == '=') return Tok::TokenKind::STAR_ASSING;
+        if(first_char == '/' && second_char == '=') return Tok::TokenKind::SLASH_ASSIGN;
+        if(first_char == '%' && second_char == '=') return Tok::TokenKind::PERCENT_ASSIGN;
+        if(first_char == '^' && second_char == '=') return Tok::TokenKind::CARET_ASSIGN;
 
         previous_byte();
 
@@ -142,6 +156,13 @@ namespace Lex {
             case '>' : return Tok::TokenKind::GREATER;
             case '-' : return Tok::TokenKind::MINUS;
             case ':' : return Tok::TokenKind::COLON;
+            case '+' : return Tok::TokenKind::PLUS;
+            case '*' : return Tok::TokenKind::MULTIPLY;
+            case '/' : return Tok::TokenKind::DIVIDE;
+            case '%' : return Tok::TokenKind::MODULO;
+            case '&' : return Tok::TokenKind::BITWISEAND;
+            case '|' : return Tok::TokenKind::BITWISEOR;
+            case '^' : return Tok::TokenKind::BITWISEXOR;
             default : lexer_error(first_char, "invalid token", line, column);
         }
     }
@@ -169,24 +190,57 @@ namespace Lex {
         };
     }
     std::optional<Tok::Token> Lexer::tokenize_number(){
-        size_t size = 0;
+        size_t start = index - 1; // current_byte() already consumed first digit
         bool is_float = false;
         char c = current_byte();
-        while(std::isdigit(c) || c == '.'){
-            if(c == '.')
-                is_float = true;
-            size++;
-            auto ch = next_byte();
-            if(!ch)
-                break;
-            c = *ch;
+
+        // hex: 0x, binary: 0b, octal: 0o
+        if(c == '0'){
+            auto p = peek_byte();
+            if(p && (*p == 'x' || *p == 'X')){
+                next_byte(); // consume 'x'
+                while(auto ch = peek_byte()){
+                    if(std::isxdigit(*ch)) next_byte();
+                    else break;
+                }
+                std::string_view text = content.substr(start, index - start);
+                return Tok::Token{Tok::TokenKind::LITINT, text, line, column};
+            }
+            if(p && (*p == 'b' || *p == 'B')){
+                next_byte(); // consume 'b'
+                while(auto ch = peek_byte()){
+                    if(*ch == '0' || *ch == '1') next_byte();
+                    else break;
+                }
+                std::string_view text = content.substr(start, index - start);
+                return Tok::Token{Tok::TokenKind::LITINT, text, line, column};
+            }
+            if(p && (*p == 'o' || *p == 'O')){
+                next_byte(); // consume 'o'
+                while(auto ch = peek_byte()){
+                    if(*ch >= '0' && *ch <= '7') next_byte();
+                    else break;
+                }
+                std::string_view text = content.substr(start, index - start);
+                return Tok::Token{Tok::TokenKind::LITINT, text, line, column};
+            }
         }
-        previous_byte();
 
-        std::string_view result = content.substr(index-size, size);
+        // decimal / float
+        while(auto ch = peek_byte()){
+            if(std::isdigit(*ch)){
+                next_byte();
+            } else if(*ch == '.' && !is_float){
+                is_float = true;
+                next_byte();
+            } else {
+                break;
+            }
+        }
 
+        std::string_view result = content.substr(start, index - start);
         return Tok::Token{
-            is_float ? Tok::TokenKind::LITFLOAT : Tok::TokenKind::LITINT, // change later if float
+            is_float ? Tok::TokenKind::LITFLOAT : Tok::TokenKind::LITINT,
             result,
             line,
             column
@@ -208,18 +262,15 @@ namespace Lex {
         }
 
         std::string_view result = content.substr(start, end-start);
-        return Tok::Token{
-            Tok::TokenKind::STRING,
-            result,
-            line,
-            column
-        };
+        Tok::TokenKind kind = (quote == '\'') ? Tok::TokenKind::LITCHAR : Tok::TokenKind::LITSTRING;
+        return Tok::Token{kind, result, line, column};
 
     }
     [[noreturn]]
-    std::optional<Tok::Token> Lexer::lexer_error(char c, const std::string& msg, size_t line, size_t column){
+    std::optional<Tok::Token> Lexer::lexer_error(char c, const std::string& msg, unsigned int line, unsigned int column){
         std::cerr << "LexerError\n";
         std::cerr << "Error at line: " << line + 1 << ", column: " << column + 1 << "\n";
         std::cerr << "Error type: " << msg << " => '" << c << "' code: " << static_cast<int>(c) << "\n";
         std::exit(1);
-};
+    }
+}
