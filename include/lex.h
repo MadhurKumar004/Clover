@@ -14,8 +14,8 @@ namespace Lex {
         std::string_view content;
         std::size_t index;
         std::size_t prev_index;
-        std::size_t line;
-        std::size_t column;
+        unsigned int line;
+        unsigned int column;
     public :
         Lexer(std::string_view src) :
             content(src),
@@ -38,7 +38,7 @@ namespace Lex {
         std::optional<Tok::Token> tokenize_string();
         std::optional<Tok::Token> skip_comment();
         std::optional<Tok::TokenKind> check_multi_char_type();
-        std::optional<Tok::Token> lexer_error(char c, const std::string& msg, size_t line, size_t column);
+        [[noreturn]] std::optional<Tok::Token> lexer_error(char c, const std::string& msg, unsigned int line, unsigned int column);
     };
 
 };

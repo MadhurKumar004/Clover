@@ -31,7 +31,10 @@ namespace Tok {
         NOT_EQUAL, COLON, TILDE, BITWISEAND, BITWISEOR, BITWISEXOR, LSHIFT, RSHIFT,
 
         //Datatype
-        U8, U16, U32, U64, I1, I8, I16, I32, I64, F16, F32, F64, STRING, CHAR, NONE,
+        U8, U16, U32, U64, U128,
+        I1, I8, I16, I32, I64, I128,
+        F16, F32, F64, F128,
+        STRING, CHAR, NONE,
     };
 
     struct Token {
@@ -58,6 +61,8 @@ namespace Tok {
         {"struct", TokenKind::STRUCT},
         {"const", TokenKind::CONST},
         {"ret", TokenKind::RET},
+        {"as", TokenKind::AS},
+        {"unsafe", TokenKind::UNSAFE},
 
         // literals
         {"true", TokenKind::TRUE},
@@ -68,16 +73,19 @@ namespace Tok {
         {"u16", TokenKind::U16},
         {"u32", TokenKind::U32},
         {"u64", TokenKind::U64},
+        {"u128", TokenKind::U128},
 
         {"i1", TokenKind::I1},
         {"i8", TokenKind::I8},
         {"i16", TokenKind::I16},
         {"i32", TokenKind::I32},
         {"i64", TokenKind::I64},
+        {"i128", TokenKind::I128},
 
         {"f16", TokenKind::F16},
         {"f32", TokenKind::F32},
         {"f64", TokenKind::F64},
+        {"f128", TokenKind::F128},
 
         {"string", TokenKind::STRING},
         {"char", TokenKind::CHAR}
