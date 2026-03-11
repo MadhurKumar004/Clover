@@ -6,6 +6,10 @@
 
 #include "lex.h"
 #include "parse.h"
+#include "sem.h"
+#include "codegen.h"
+
+#include <llvm/Support/raw_ostream.h>
 
 static std::string read_file(const char* path) {
     std::ifstream file(path);
@@ -37,11 +41,18 @@ int main(int argc, char* argv[]) {
     Parse::Parse parser(std::move(tokens));
     AST::Program program = parser.parse();
 
-    std::cout << "parsed " << program.items.size() << " top-level items.\n";
+    // 4. Semantic analysis
+    Sem::SemanticAnalyzer sem(program);
+    sem.analyze();
+    if (sem.has_errors()) {
+        sem.print_errors();
+        return 1;
+    }
 
-    // 4. TODO: semantic analysis  (sem.h / sem.cpp)
-    // 5. TODO: IR generation      (codegen)
-    // 6. TODO: emit output         (object file / executable)
+    // 5. Code generation (LLVM IR)
+    Codegen::Generator codegen(program);
+    auto module = codegen.generate();
+    module->print(llvm::outs(), nullptr);
 
     return 0;
 }
