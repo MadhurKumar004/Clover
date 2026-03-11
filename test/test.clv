@@ -1,0 +1,68 @@
+extern i32 puts(s : *char);
+
+const PI : f64 = 3.14159;
+
+struct Vec {
+    x : f32;
+    y : f32;
+}
+
+i32 add(a : i32, b : i32) {
+    ret a + b;
+}
+
+i32 factorial(n : i32) {
+    if n <= 1 {
+        ret 1;
+    }
+    ret n * factorial(n - 1);
+}
+
+i32 main() {
+    x : i32 = 10;
+    y : i32 = 20;
+    result : i32 = add(x, y);
+
+    const limit : i32 = 100;
+
+    flag : i1 = true;
+
+    if result > 15 {
+        result = result + 1;
+    } elif result == 15 {
+        result = 0;
+    } else {
+        result = result - 1;
+    }
+
+    counter : i32 = 0;
+    do counter < 5 {
+        counter = counter + 1;
+    }
+
+    loop {
+        if counter > 10 {
+            break;
+        }
+        counter = counter + 1;
+    }
+
+    v : Vec2;
+    v.x = 1.0;
+    v.y = 2.0;
+
+    ptr : *i32 = &x;
+    unsafe {
+        val : i32 = *ptr;
+    }
+
+    bits : i32 = 0xFF & 0x0F;
+    shifted : i32 = bits << 2;
+    ored : i32 = bits | 0xF0;
+    xored : i32 = bits ^ 0xFF;
+    neg : i32 = ~bits;
+
+    casted : f32 = x as f32;
+
+    ret 0;
+}
