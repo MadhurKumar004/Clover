@@ -18,10 +18,10 @@ keyword :
     i1 i8 i16 i32 i64 i128
     u8 u16 u32 u64 u128
     f16 f32 f64 f128
-    char ret mut break continue
-    fn if else elif do loop
+    char ret break continue
+    if else elif do loop
     true false as safe extern
-    struct 
+    struct
 
 identifier :
     identifier nondigit
