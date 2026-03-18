@@ -1,11 +1,9 @@
 #ifndef LEX_H
 #define LEX_H
 
-#include <cstdint>
 #include <vector>
 #include <optional>
 #include <string_view>
-#include "util.h"
 #include "tok.h"
 
 namespace Lex {
