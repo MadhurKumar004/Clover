@@ -3,8 +3,9 @@
 namespace Parse {
     AST::Program Parse::parse_program(){
         AST::Program prog;
-        while(!is_at_end())
+        while(!is_at_end()) {
             prog.items.push_back(parse_top_level());
+        }
 
         return prog;
     }

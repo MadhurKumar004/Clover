@@ -7,7 +7,8 @@
 namespace Parse{
 AST::Function Parse::parse_function(){
     AST::Type ret = parse_type();
-    Tok::Token& name = consume(Tok::TokenKind::IDENT, "expected function name");
+    Tok::Token& name_tok = consume(Tok::TokenKind::IDENT, "expected function name");
+    std::string name(name_tok.val);
     consume(Tok::TokenKind::LPAREN, "expected '('");
     std::vector<AST::Param> params;
     if(!check(Tok::TokenKind::RPAREN)){
@@ -27,7 +28,7 @@ AST::Function Parse::parse_function(){
 
     return AST::Function{
         std::optional<AST::Type>(std::move(ret)),
-        std::string(name.val),
+        std::move(name),
         std::move(params),
         std::make_unique<AST::Block>(std::move(body))
     };

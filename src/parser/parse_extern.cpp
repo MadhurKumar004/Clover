@@ -6,7 +6,8 @@
 namespace Parse {
     AST::ExternDecl Parse::parse_extern() {
         AST::Type ret = parse_type();
-        Tok::Token& name = consume(Tok::TokenKind::IDENT, "expected name");
+        Tok::Token& name_tok = consume(Tok::TokenKind::IDENT, "expected extern name");
+        std::string name(name_tok.val);
         consume(Tok::TokenKind::LPAREN, "expected '('");
         std::vector<AST::Param> params;
         if(!check(Tok::TokenKind::RPAREN)){
@@ -25,7 +26,7 @@ namespace Parse {
 
         return AST::ExternDecl{
             std::optional<AST::Type>(std::move(ret)),
-            std::string(name.val),
+            std::move(name),
             std::move(params)
         };
     }
