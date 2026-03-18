@@ -86,6 +86,82 @@ namespace Codegen{
         return ty->isIntegerTy();
     }
 
+    llvm::Value* Generator::cast_value_to(llvm::Value* val, llvm::Type* target_ty){
+        llvm::Type* src_ty = val->getType();
+
+        if(src_ty == target_ty)
+            return val;
+
+        // Int -> Float
+        if(is_int_type(src_ty) && is_float_type(target_ty))
+            return builder_.CreateSIToFP(val, target_ty, "coerce");
+
+        // Float -> Int
+        if(is_float_type(src_ty) && is_int_type(target_ty))
+            return builder_.CreateFPToSI(val, target_ty, "coerce");
+
+        // Float -> Float (extend/truncate)
+        if(is_float_type(src_ty) && is_float_type(target_ty)){
+            if(src_ty->getPrimitiveSizeInBits() < target_ty->getPrimitiveSizeInBits())
+                return builder_.CreateFPExt(val, target_ty, "coerce");
+            return builder_.CreateFPTrunc(val, target_ty, "coerce");
+        }
+
+        // Int -> Int (extend/truncate)
+        if(is_int_type(src_ty) && is_int_type(target_ty)){
+            unsigned src_bits = src_ty->getIntegerBitWidth();
+            unsigned dst_bits = target_ty->getIntegerBitWidth();
+            if(src_bits < dst_bits)
+                return builder_.CreateSExt(val, target_ty, "coerce");
+            if(src_bits > dst_bits)
+                return builder_.CreateTrunc(val, target_ty, "coerce");
+            return val;
+        }
+
+        // Pointer <-> Pointer/Int
+        if(src_ty->isPointerTy() && target_ty->isPointerTy())
+            return builder_.CreateBitCast(val, target_ty, "coerce");
+
+        if(is_int_type(src_ty) && target_ty->isPointerTy())
+            return builder_.CreateIntToPtr(val, target_ty, "coerce");
+
+        if(src_ty->isPointerTy() && is_int_type(target_ty))
+            return builder_.CreatePtrToInt(val, target_ty, "coerce");
+
+        throw std::runtime_error("codegen: cannot coerce value to destination type");
+    }
+
+    llvm::Type* Generator::lvalue_type(const AST::Expression& expr){
+        return std::visit([this](auto& node) -> llvm::Type*{
+            using T = std::decay_t<decltype(node)>;
+
+            if constexpr (std::is_same_v<T, AST::Expression::Identifier>){
+                auto* alloca = lookup_local(node.name);
+                if(!alloca)
+                    throw std::runtime_error("codegen: unknown variable '" + node.name + "'");
+                return alloca->getAllocatedType();
+            } else if constexpr (std::is_same_v<T, AST::Expression::FieldAccess>){
+                llvm::Type* obj_ty = lvalue_type(*node.object);
+                auto* struct_ty = llvm::dyn_cast<llvm::StructType>(obj_ty);
+                if(!struct_ty || !struct_ty->hasName())
+                    throw std::runtime_error("codegen: field access on non-struct type");
+
+                std::string struct_name = struct_ty->getName().str();
+                auto fields_it = struct_fields_.find(struct_name);
+                if(fields_it == struct_fields_.end())
+                    throw std::runtime_error("codegen: unknown struct '" + struct_name + "'");
+
+                auto idx_it = fields_it->second.find(node.field);
+                if(idx_it == fields_it->second.end())
+                    throw std::runtime_error("codegen: unknown field '" + node.field + "' in '" + struct_name + "'");
+
+                return struct_ty->getElementType(idx_it->second);
+            } else {
+                throw std::runtime_error("codegen: expression is not a lvalue");
+            }
+        }, expr.value);
+    }
+
     llvm::Type* Generator::builtin_to_llvm(AST::BuiltinType bt){
         switch(bt){
             case AST::BuiltinType::I1:   return llvm::Type::getInt1Ty(ctx_);
@@ -234,12 +310,17 @@ namespace Codegen{
         //push a new scopre for function-level variables
         push_scope();
 
+        std::vector<std::pair<llvm::AllocaInst*, llvm::Argument*>> param_allocas;
         unsigned i = 0;
         for(auto& arg : llvm_fn->args()){
             const auto& param = fn.params[i++];
             auto* alloca = create_entry_alloca(llvm_fn, param.name, arg.getType());
-            builder_.CreateStore(&arg, alloca);
             declare_local(param.name, alloca);
+            param_allocas.push_back({alloca, &arg});
+        }
+
+        for(auto& [alloca, arg] : param_allocas){
+            builder_.CreateStore(arg, alloca);
         }
 
         //generate function body
@@ -306,6 +387,7 @@ namespace Codegen{
         auto* slot = create_entry_alloca(fn, decl.name, ty);
         if(decl.init){
             auto* init_val = emit_expr(*decl.init);
+            init_val = cast_value_to(init_val, ty);
             builder_.CreateStore(init_val, slot);
         }
 
@@ -729,16 +811,30 @@ namespace Codegen{
             args.push_back(emit_expr(*arg));
         }
 
-        if(callee_fn->getReturnType()->isVoidTy()){
-            return builder_.CreateCall(callee_fn, args);
+        auto* fn_ty = callee_fn->getFunctionType();
+        unsigned param_count = fn_ty->getNumParams();
+        if(!fn_ty->isVarArg() && args.size() != param_count)
+            throw std::runtime_error("codegen: argument count mismatch in call");
+
+        if(fn_ty->isVarArg() && args.size() < param_count)
+            throw std::runtime_error("codegen: too few arguments in variadic call");
+
+        for(unsigned i = 0; i < param_count; ++i){
+            args[i] = cast_value_to(args[i], fn_ty->getParamType(i));
         }
 
-        return builder_.CreateCall(callee_fn, args, "calltmp");
+        if(callee_fn->getReturnType()->isVoidTy()){
+            return builder_.CreateCall(callee_fn, args);
+        } else {
+            return builder_.CreateCall(callee_fn, args, "calltmp");
+        }
     }
 
     llvm::Value* Generator::emit_assign(const AST::Expression::Assign& asgn){
         auto* ptr = emit_lvalue(*asgn.target);
         auto* val = emit_expr(*asgn.value);
+        auto* target_ty = lvalue_type(*asgn.target);
+        val = cast_value_to(val, target_ty);
         builder_.CreateStore(val, ptr);
         return val;
     }

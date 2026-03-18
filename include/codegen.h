@@ -90,6 +90,8 @@ private:
         llvm::Function* fn, const std::string& name, llvm::Type* type);
     llvm::Function* current_function();
     llvm::Value* emit_lvalue(const AST::Expression& expr);
+    llvm::Type* lvalue_type(const AST::Expression& expr);
+    llvm::Value* cast_value_to(llvm::Value* val, llvm::Type* target_ty);
     bool is_float_type(llvm::Type* ty);
     bool is_int_type(llvm::Type* ty);
 };
