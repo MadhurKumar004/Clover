@@ -1,18 +1,22 @@
 //This file generates llvm ir for the clover ast
 
-#include "codegen.h"
 #include "ast.h"
+#include "codegen.h"
+#include "passes.h"
 
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <iostream>
+//#include <iostream>
 #include <stdexcept>
 #include <variant>
 
@@ -34,6 +38,34 @@ namespace Codegen{
 
         //pass2 for emitting function bodies
         emit_all();
+
+        // Detect invalid IR before running any analysis/pass pipelines.
+        if (llvm::verifyModule(*module_, &llvm::errs())) {
+            throw std::runtime_error("codegen: invalid LLVM module before passes");
+        }
+
+        {
+            llvm::PassBuilder PB;
+            llvm::ModuleAnalysisManager MAM;
+            llvm::FunctionAnalysisManager FAM;
+            llvm::LoopAnalysisManager LAM;
+            llvm::CGSCCAnalysisManager CGAM;
+
+            PB.registerModuleAnalyses(MAM);
+            PB.registerFunctionAnalyses(FAM);
+            PB.registerLoopAnalyses(LAM);
+            PB.registerCGSCCAnalyses(CGAM);
+            PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+            llvm::FunctionPassManager FPM;
+            FPM.addPass(DcePass{});
+
+            llvm::ModulePassManager MPM;
+            MPM.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+            MPM.run(*module_, MAM);
+            MAM.clear();
+        }
 
         return std::move(module_);
     }

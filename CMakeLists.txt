@@ -5,9 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-file(GLOB PARSER_SRC src/parser/*.cpp )
-file(GLOB CHECK_SRC src/check/*.cpp )
-file(GLOB CODEGEN_SRC src/codegen/*.cpp)
+file(GLOB_RECURSE PARSER_SRC CONFIGURE_DEPENDS src/parser/*.cpp )
+file(GLOB_RECURSE CHECK_SRC CONFIGURE_DEPENDS src/check/*.cpp )
+file(GLOB_RECURSE CODEGEN_SRC CONFIGURE_DEPENDS src/codegen/*.cpp)
 
 add_executable(clover
     src/main.cpp
@@ -33,6 +33,9 @@ llvm_map_components_to_libnames(LLVM_LIBS
     core
     support
     irreader
+    passes
+    transformutils
+    analysis
 )
 
 # Fall back to shared LLVM if static component libs not found
