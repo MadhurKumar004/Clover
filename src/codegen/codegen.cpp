@@ -58,6 +58,7 @@ namespace Codegen{
             PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
             llvm::FunctionPassManager FPM;
+            FPM.addPass(llvm::VerifierPass());
             FPM.addPass(DcePass{});
 
             llvm::ModulePassManager MPM;
@@ -232,7 +233,7 @@ namespace Codegen{
                 } else if constexpr (std::is_same_v<T, AST::Type::Pointer> ||
                                     std::is_same_v<T, AST::Type::ConstPtr>){
                     llvm::Type* inner = to_llvm_type(*ty.inner);
-                    return llvm::PointerType::get(ctx_, 0);
+                    return llvm::PointerType::get(inner, 0);
                 } else {
                     throw std::runtime_error("codegen: unsupported type variant");
                 }
